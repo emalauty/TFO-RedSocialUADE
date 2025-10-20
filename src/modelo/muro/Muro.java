@@ -1,11 +1,9 @@
-package modelo;
+package modelo.muro;
 
-import modelo.GestorDeDatos;
-import modelo.Publicacion;
+import persistencia.GestorDeDatos;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 

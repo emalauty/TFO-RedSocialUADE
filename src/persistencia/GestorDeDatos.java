@@ -1,8 +1,10 @@
-package modelo;
+package persistencia;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import modelo.muro.Publicacion;
+
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,7 +26,7 @@ public class GestorDeDatos {
         // Usamos GsonBuilder para que el JSON se guarde con un formato legible (pretty printing).
         // Le decimos a GsonBuilder que, cada vez que vea un LocalDateTime, use nuestro adaptador.
         this.gson = new GsonBuilder()
-                .registerTypeAdapter(LocalDateTime.class, new modelo.LocalDateTimeAdapter())
+                .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
                 .setPrettyPrinting()
                 .create();
     }

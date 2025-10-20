@@ -1,7 +1,7 @@
 package vista;
 
-import modelo.Muro;
-import modelo.Publicacion;
+import modelo.muro.Muro;
+import modelo.muro.Publicacion;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;

@@ -1,6 +1,6 @@
 package vista;
 
-import modelo.GestorDeDatos;
+import persistencia.GestorDeDatos;
 import javax.swing.*;
 
 public class VentanaPrincipal extends JFrame {

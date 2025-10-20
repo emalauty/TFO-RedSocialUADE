@@ -1,4 +1,4 @@
-package modelo;
+package modelo.muro;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;

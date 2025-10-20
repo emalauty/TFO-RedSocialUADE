@@ -1,8 +1,8 @@
 package vista;
 
-import modelo.Conexion;
-import modelo.RedSocialGrafo;
-import modelo.Usuario;
+import modelo.grafo.Conexion;
+import modelo.grafo.RedSocialGrafo;
+import modelo.grafo.Usuario;
 
 import javax.swing.*;
 import java.awt.*;
