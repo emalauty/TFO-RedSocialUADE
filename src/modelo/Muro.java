@@ -1,45 +1,71 @@
 package modelo;
 
-import java.util.*;
+import modelo.GestorDeDatos;
+import modelo.Publicacion;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.PriorityQueue;
+
+/**
+ * Gestiona la colección de publicaciones de la red social.
+ */
 public class Muro {
+
     private List<Publicacion> listaDeTodasLasPublicaciones;
     private PriorityQueue<Publicacion> publicacionesPorRelevancia;
+    private GestorDeDatos gestorDeDatos; // [NUEVO] Atributo para manejar los datos
 
     public Muro() {
-        this.listaDeTodasLasPublicaciones = new ArrayList<>();
-        this.publicacionesPorRelevancia = new PriorityQueue<>(new Comparator<Publicacion>() {
-            @Override
-            public int compare(Publicacion p1, Publicacion p2) {
-                return Long.compare(p2.calcularPuntajeDeRelevancia(), p1.calcularPuntajeDeRelevancia());
-            }
-        });
+        // --- Cambios en el constructor ---
+        this.gestorDeDatos = new GestorDeDatos();
+        // En lugar de crear una lista vacía, la cargamos desde el archivo JSON
+        this.listaDeTodasLasPublicaciones = gestorDeDatos.cargarPublicaciones();
+
+        // Inicializamos la PriorityQueue
+        this.publicacionesPorRelevancia = new PriorityQueue<>(
+                (p1, p2) -> Long.compare(p2.calcularPuntajeDeRelevancia(), p1.calcularPuntajeDeRelevancia())
+        );
+        // [NUEVO] Añadimos todas las publicaciones cargadas a la cola de prioridad
+        if (this.listaDeTodasLasPublicaciones != null) {
+            this.publicacionesPorRelevancia.addAll(this.listaDeTodasLasPublicaciones);
+        }
     }
 
-    public void addPublicacion(Publicacion publicacion) {
+    // [NUEVO] metodo para que la ventana pueda acceder a la lista para guardarla
+    public List<Publicacion> getListaDeTodasLasPublicaciones() {
+        return listaDeTodasLasPublicaciones;
+    }
+
+
+    /**
+     * Añade una publicación a ambas colecciones.
+     */
+    public void agregarPublicacion(Publicacion publicacion) {
         this.listaDeTodasLasPublicaciones.add(publicacion);
         this.publicacionesPorRelevancia.add(publicacion);
     }
 
+    /**
+     * Devuelve una lista ordenada por fecha (más nueva primero) invirtiendo la lista.
+     */
     public List<Publicacion> getPublicacionesOrdenadasPorFecha() {
-        // 1. Creamos una copia para no modificar la lista original.
         List<Publicacion> publicacionesInvertidas = new ArrayList<>(this.listaDeTodasLasPublicaciones);
-
-        // 2. Invertimos la copia. Lo que estaba al final ahora está al principio.
         Collections.reverse(publicacionesInvertidas);
-
-        // 3. Devolvemos la lista ya invertida.
         return publicacionesInvertidas;
     }
 
-
+    /**
+     * Devuelve una lista ordenada por relevancia usando la PriorityQueue.
+     */
     public List<Publicacion> getPublicacionesPorRelevancia() {
         List<Publicacion> resultado = new ArrayList<>();
-        PriorityQueue<Publicacion> copia = new PriorityQueue<>(this.publicacionesPorRelevancia);
-        while (!copia.isEmpty()) {
-            resultado.add(copia.poll());
+        PriorityQueue<Publicacion> copiaCola = new PriorityQueue<>(this.publicacionesPorRelevancia);
+        while (!copiaCola.isEmpty()) {
+            resultado.add(copiaCola.poll());
         }
         return resultado;
     }
 }
-
