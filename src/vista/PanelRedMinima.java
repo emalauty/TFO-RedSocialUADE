@@ -8,28 +8,27 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.List;
 
-public class PanelRedDeAmigos extends JPanel {
+public class PanelRedMinima extends JPanel {
 
     private final RedSocialGrafo grafo;
     private final JComboBox<Usuario> comboUsuarioA;
     private final JComboBox<Usuario> comboUsuarioB;
     private final JTextArea areaResultadoCompleto;
     private final JTextArea areaResultadoMinimo;
+    private final Runnable actualizadorExterno;
 
-    public PanelRedDeAmigos() {
-        // 1. Configuración del Panel Principal
+    public PanelRedMinima(RedSocialGrafo grafo, Runnable actualizadorExterno) {
+        this.grafo = grafo;
+        this.actualizadorExterno = actualizadorExterno;
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        // 2. Inicialización del Grafo
-        this.grafo = new RedSocialGrafo();
 
         // --- PANEL DE CONTROLES (IZQUIERDA) ---
         JPanel panelControles = new JPanel();
         panelControles.setLayout(new BoxLayout(panelControles, BoxLayout.Y_AXIS));
         panelControles.setBorder(BorderFactory.createTitledBorder("Controles de la Red"));
 
-        // Sección para añadir usuarios
+        // (El resto del panel de controles es igual...)
         JPanel panelAnadirUsuario = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JTextField campoNombreUsuario = new JTextField(15);
         JButton botonAnadirUsuario = new JButton("Añadir Usuario");
@@ -37,7 +36,6 @@ public class PanelRedDeAmigos extends JPanel {
         panelAnadirUsuario.add(campoNombreUsuario);
         panelAnadirUsuario.add(botonAnadirUsuario);
 
-        // Sección para añadir conexiones
         JPanel panelAnadirConexion = new JPanel(new GridLayout(3, 2, 5, 5));
         panelAnadirConexion.setBorder(BorderFactory.createTitledBorder("Crear Amistad"));
         comboUsuarioA = new JComboBox<>();
@@ -51,57 +49,40 @@ public class PanelRedDeAmigos extends JPanel {
         panelAnadirConexion.add(new JLabel("Costo:"));
         panelAnadirConexion.add(campoCosto);
 
-        // Botón para calcular la red mínima
-        JButton botonCalcular = new JButton("Calcular Red Mínima");
-        botonCalcular.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JButton botonCalcularMST = new JButton("Calcular Red Mínima (Kruskal)");
+        botonCalcularMST.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Añadir componentes al panel de controles
         panelControles.add(panelAnadirUsuario);
         panelControles.add(Box.createRigidArea(new Dimension(0, 15)));
         panelControles.add(panelAnadirConexion);
         panelControles.add(botonAnadirConexion);
         panelControles.add(Box.createRigidArea(new Dimension(0, 20)));
-        panelControles.add(botonCalcular);
-
+        panelControles.add(botonCalcularMST);
 
         // --- PANEL DE RESULTADOS (CENTRO) ---
-        JPanel panelResultados = new JPanel(new GridLayout(1, 2, 10, 0));
-        panelResultados.setBorder(BorderFactory.createTitledBorder("Visualización de la Red"));
-
+        JTabbedPane panelTabsResultados = new JTabbedPane();
         areaResultadoCompleto = new JTextArea("Agrega usuarios y conexiones...");
         areaResultadoCompleto.setEditable(false);
-        JScrollPane scrollCompleto = new JScrollPane(areaResultadoCompleto);
-        scrollCompleto.setBorder(BorderFactory.createTitledBorder("Red Completa"));
-
         areaResultadoMinimo = new JTextArea();
         areaResultadoMinimo.setEditable(false);
-        JScrollPane scrollMinimo = new JScrollPane(areaResultadoMinimo);
-        scrollMinimo.setBorder(BorderFactory.createTitledBorder("Red de Conectividad Mínima"));
+        panelTabsResultados.addTab("Red Completa", new JScrollPane(areaResultadoCompleto));
+        panelTabsResultados.addTab("Red Mínima (MST)", new JScrollPane(areaResultadoMinimo));
 
-        panelResultados.add(scrollCompleto);
-        panelResultados.add(scrollMinimo);
-
-
-        // 3. Añadir Paneles Principales al Panel General
         add(panelControles, BorderLayout.WEST);
-        add(panelResultados, BorderLayout.CENTER);
+        add(panelTabsResultados, BorderLayout.CENTER);
 
-
-        // --- LÓGICA DE LOS BOTONES ---
-
-        // Acción para añadir un nuevo usuario
+        // --- LÓGICA DE BOTONES ---
         botonAnadirUsuario.addActionListener(e -> {
             String nombre = campoNombreUsuario.getText().trim();
             if (!nombre.isEmpty()) {
                 Usuario nuevoUsuario = new Usuario(nombre);
                 grafo.agregarUsuario(nuevoUsuario);
                 actualizarCombos();
+                actualizadorExterno.run();
                 campoNombreUsuario.setText("");
-                System.out.println("Usuario añadido: " + nombre);
             }
         });
 
-        // Acción para añadir una nueva conexión
         botonAnadirConexion.addActionListener(e -> {
             Usuario uA = (Usuario) comboUsuarioA.getSelectedItem();
             Usuario uB = (Usuario) comboUsuarioB.getSelectedItem();
@@ -109,24 +90,21 @@ public class PanelRedDeAmigos extends JPanel {
                 int costo = Integer.parseInt(campoCosto.getText().trim());
                 if (uA != null && uB != null && !uA.equals(uB)) {
                     grafo.agregarConexion(new Conexion(uA, uB, costo));
-                    actualizarVistaRedCompleta();
-                    System.out.println("Conexión añadida: " + uA + " <-> " + uB);
-                } else {
-                    JOptionPane.showMessageDialog(this, "Selecciona dos usuarios diferentes.", "Error", JOptionPane.ERROR_MESSAGE);
+                    actualizarVistaRedCompleta(); // <-- Este método ahora tiene código
+                    actualizadorExterno.run();
                 }
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "El costo debe ser un número.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        // Acción para calcular el MST
-        botonCalcular.addActionListener(e -> {
+        botonCalcularMST.addActionListener(e -> {
             List<Conexion> redMinima = grafo.calcularRedMinima();
-            actualizarVistaRedMinima(redMinima);
+            actualizarVistaRedMinima(redMinima); // <-- Este método ahora tiene código
         });
     }
 
-    private void actualizarCombos() {
+    public void actualizarCombos() {
         comboUsuarioA.removeAllItems();
         comboUsuarioB.removeAllItems();
         for (Usuario u : grafo.getUsuarios()) {
@@ -134,6 +112,9 @@ public class PanelRedDeAmigos extends JPanel {
             comboUsuarioB.addItem(u);
         }
     }
+
+    // --- [CORRECCIÓN 1] ---
+    // Implementación de los métodos que estaban vacíos
 
     private void actualizarVistaRedCompleta() {
         StringBuilder sb = new StringBuilder();

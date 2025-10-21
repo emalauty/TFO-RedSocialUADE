@@ -1,37 +1,43 @@
 package vista;
 
 import persistencia.GestorDeDatos;
+import modelo.grafo.RedSocialGrafo; // Importamos la clase del grafo
 import javax.swing.*;
 
 public class VentanaPrincipal extends JFrame {
 
     public VentanaPrincipal() {
         setTitle("Red Social UADE");
-        setSize(800, 700);
+        setSize(1024, 768); // Más grande para el grafo
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
         JTabbedPane tabbedPane = new JTabbedPane();
 
-        // Creamos una instancia de nuestro nuevo panel para el muro
+        // --- 1. Crear el objeto Grafo COMPARTIDO ---
+        RedSocialGrafo grafoCompartido = new RedSocialGrafo();
+
+        // --- 2. Crear los 3 Paneles ---
         PanelMuro panelMuro = new PanelMuro();
 
-        // Creamos el panel para la Red de Amigos
-        PanelRedDeAmigos panelRedDeAmigos = new PanelRedDeAmigos();
+        // Creamos un "Runnable" para que el panel de red mínima pueda avisar al panel de sugerencias
+        PanelSugerencias panelSugerencias = new PanelSugerencias(grafoCompartido);
+        Runnable actualizador = () -> panelSugerencias.actualizarCombos();
 
-        // Añadimos los paneles como pestañas
+        PanelRedMinima panelRedMinima = new PanelRedMinima(grafoCompartido, actualizador);
+
+        // --- 3. Añadir Paneles como Pestañas ---
         tabbedPane.addTab("Muro de Publicaciones", panelMuro);
-        tabbedPane.addTab("Red de Amigos", panelRedDeAmigos);
+        tabbedPane.addTab("Red Mínima (Kruskal)", panelRedMinima);
+        tabbedPane.addTab("Sugerencias (Dijkstra)", panelSugerencias);
 
-        // Añadimos el panel de pestañas a la ventana
         add(tabbedPane);
 
-        // El listener para guardar se queda aquí, pero ahora pide los datos al panel del muro
+        // Listener para guardar (solo el muro, como antes)
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent windowEvent) {
                 GestorDeDatos gestor = new GestorDeDatos();
-                // Usamos el getter que creamos en PanelMuro
                 gestor.guardarPublicaciones(panelMuro.getMuro().getListaDeTodasLasPublicaciones());
             }
         });
