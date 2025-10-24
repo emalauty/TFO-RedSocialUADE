@@ -5,14 +5,17 @@ import modelo.grafo.Usuario;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 
 public class PanelSugerencias extends JPanel {
 
     private final RedSocialGrafo grafo;
     private final GrafoPanel panelDeDibujo;
-    private final JComboBox<Usuario> comboUsuarioRecomendacion;
-    private final JTextArea areaRecomendacionesTexto;
+    private final JComboBox<Usuario> comboUsuarioInicio;
+    private final JComboBox<Usuario> comboUsuarioFin; // [NUEVO]
+    private final JTextArea areaResultadosTexto; // [Renombrado]
 
     public PanelSugerencias(RedSocialGrafo grafo) {
         this.grafo = grafo;
@@ -22,26 +25,37 @@ public class PanelSugerencias extends JPanel {
         // 1. Panel de Control (Izquierda)
         JPanel panelControl = new JPanel();
         panelControl.setLayout(new BoxLayout(panelControl, BoxLayout.Y_AXIS));
-        panelControl.setBorder(BorderFactory.createTitledBorder("Controles de Sugerencias"));
-        panelControl.setPreferredSize(new Dimension(300, 0));
+        panelControl.setBorder(BorderFactory.createTitledBorder("Controles de Búsqueda"));
+        panelControl.setPreferredSize(new Dimension(350, 0)); // Un poco más ancho
 
-        // Sección para Recomendación de Amigos (Dijkstra)
-        JPanel panelRecomendacion = new JPanel(new BorderLayout(5, 5));
-        panelRecomendacion.setBorder(BorderFactory.createTitledBorder("Buscar Amigos"));
-        comboUsuarioRecomendacion = new JComboBox<>();
-        JButton botonRecomendar = new JButton("Buscar Caminos Cortos (Dijkstra)");
-        panelRecomendacion.add(new JLabel("Recomendar para:"), BorderLayout.NORTH);
-        panelRecomendacion.add(comboUsuarioRecomendacion, BorderLayout.CENTER);
-        panelRecomendacion.add(botonRecomendar, BorderLayout.SOUTH);
+        // --- [NUEVO] Panel de Selección de Usuarios ---
+        JPanel panelSeleccion = new JPanel(new GridLayout(2, 2, 5, 5));
+        panelSeleccion.setBorder(BorderFactory.createTitledBorder("Selección de Usuarios"));
+        comboUsuarioInicio = new JComboBox<>();
+        comboUsuarioFin = new JComboBox<>(); // [NUEVO]
+        panelSeleccion.add(new JLabel("Usuario de Inicio:"));
+        panelSeleccion.add(comboUsuarioInicio);
+        panelSeleccion.add(new JLabel("Usuario Final (para rutas):"));
+        panelSeleccion.add(comboUsuarioFin); // [NUEVO]
 
-        // Área de texto para los resultados de Dijkstra
-        areaRecomendacionesTexto = new JTextArea();
-        areaRecomendacionesTexto.setEditable(false);
-        JScrollPane scrollResultados = new JScrollPane(areaRecomendacionesTexto);
+        // --- [NUEVO] Panel de Botones de Algoritmos ---
+        JPanel panelBotones = new JPanel(new GridLayout(2, 1, 5, 5));
+        panelBotones.setBorder(BorderFactory.createTitledBorder("Ejecutar Algoritmos"));
+        JButton botonDijkstra = new JButton("Buscar Caminos Cortos (Dijkstra)");
+        JButton botonBacktrack = new JButton("Explorar Rutas de Influencia"); // [NUEVO]
+        panelBotones.add(botonDijkstra);
+        panelBotones.add(botonBacktrack); // [NUEVO]
+
+        // Área de texto para los resultados (compartida)
+        areaResultadosTexto = new JTextArea();
+        areaResultadosTexto.setEditable(false);
+        JScrollPane scrollResultados = new JScrollPane(areaResultadosTexto);
         scrollResultados.setBorder(BorderFactory.createTitledBorder("Resultados de Búsqueda"));
 
-        panelControl.add(panelRecomendacion);
-        panelControl.add(Box.createRigidArea(new Dimension(0, 20)));
+        panelControl.add(panelSeleccion); // [MODIFICADO]
+        panelControl.add(Box.createRigidArea(new Dimension(0, 15)));
+        panelControl.add(panelBotones); // [MODIFICADO]
+        panelControl.add(Box.createRigidArea(new Dimension(0, 15)));
         panelControl.add(scrollResultados);
 
         // 2. Panel de Dibujo (Centro)
@@ -52,25 +66,54 @@ public class PanelSugerencias extends JPanel {
         add(panelDeDibujo, BorderLayout.CENTER);
 
         // --- LÓGICA DE BOTONES ---
-        botonRecomendar.addActionListener(e -> {
-            Usuario usuarioInicio = (Usuario) comboUsuarioRecomendacion.getSelectedItem();
+
+        // Lógica de Dijkstra (como antes, pero usa el nuevo combo)
+        botonDijkstra.addActionListener(e -> {
+            Usuario usuarioInicio = (Usuario) comboUsuarioInicio.getSelectedItem();
             if (usuarioInicio != null) {
                 Map<Usuario, Integer> distancias = grafo.encontrarCaminosMasCortos(usuarioInicio);
-                actualizarVistaRecomendaciones(usuarioInicio, distancias);
-                panelDeDibujo.setResultadosDijkstra(distancias); // ¡Avisa al panel de dibujo!
+                actualizarVistaDijkstra(usuarioInicio, distancias);
+                panelDeDibujo.setResultadosDijkstra(distancias);
             }
+        });
+
+        // --- [NUEVO] Lógica de Backtracking ---
+        botonBacktrack.addActionListener(e -> {
+            Usuario usuarioInicio = (Usuario) comboUsuarioInicio.getSelectedItem();
+            Usuario usuarioFin = (Usuario) comboUsuarioFin.getSelectedItem();
+
+            if (usuarioInicio == null || usuarioFin == null) {
+                JOptionPane.showMessageDialog(this, "Debe seleccionar un usuario de inicio y uno final.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            if (usuarioInicio.equals(usuarioFin)) {
+                JOptionPane.showMessageDialog(this, "El usuario de inicio y final no pueden ser el mismo.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Limpiamos el coloreado de Dijkstra del grafo
+            panelDeDibujo.limpiarResultados();
+
+            // Llamamos al algoritmo
+            List<List<Usuario>> todosLosCaminos = grafo.explorarRutasDeInfluencia(usuarioInicio, usuarioFin);
+
+            // Mostramos los resultados en el área de texto
+            actualizarVistaRutas(usuarioInicio, usuarioFin, todosLosCaminos);
         });
     }
 
     /**
-     * Actualiza el JComboBox de este panel.
-     * Esta es la versión corregida sin la línea que daba error.
+     * Actualiza TODOS los JComboBox de este panel.
      */
     public void actualizarCombos() {
-        comboUsuarioRecomendacion.removeAllItems();
+        comboUsuarioInicio.removeAllItems();
+        comboUsuarioFin.removeAllItems(); // [NUEVO]
+
         for (Usuario u : grafo.getUsuarios()) {
-            comboUsuarioRecomendacion.addItem(u);
+            comboUsuarioInicio.addItem(u);
+            comboUsuarioFin.addItem(u); // [NUEVO]
         }
+
         panelDeDibujo.limpiarResultados();
         panelDeDibujo.repaint();
     }
@@ -78,20 +121,67 @@ public class PanelSugerencias extends JPanel {
     /**
      * Muestra los resultados de Dijkstra en el área de texto.
      */
-    private void actualizarVistaRecomendaciones(Usuario inicio, Map<Usuario, Integer> distancias) {
+    private void actualizarVistaDijkstra(Usuario inicio, Map<Usuario, Integer> distancias) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Distancias más cortas desde: ").append(inicio.getNombre()).append("\n\n");
+        sb.append("Distancias más cortas desde: ").append(inicio.getNombre()).append("\n(Algoritmo de Dijkstra)\n\n");
 
-        // Ordenamos los resultados por distancia para que sean más legibles
         distancias.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue())
                 .forEach(entry -> {
                     Usuario u = entry.getKey();
-                    if (!u.equals(inicio)) { // No nos recomendamos a nosotros mismos
+                    if (!u.equals(inicio)) {
                         String dist = entry.getValue() == Integer.MAX_VALUE ? "Inalcanzable" : entry.getValue().toString();
                         sb.append(u.getNombre()).append(": ").append(dist).append("\n");
                     }
                 });
-        areaRecomendacionesTexto.setText(sb.toString());
+        areaResultadosTexto.setText(sb.toString());
+    }
+
+    /**
+     * [NUEVO] Muestra los resultados de Backtracking en el área de texto.
+     */
+    private void actualizarVistaRutas(Usuario inicio, Usuario fin, List<List<Usuario>> todosLosCaminos) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Rutas de influencia encontradas de '")
+                .append(inicio.getNombre()).append("' a '")
+                .append(fin.getNombre()).append("':\n");
+        sb.append("(Algoritmo de Backtracking)\n\n");
+
+        if (todosLosCaminos.isEmpty()) {
+            sb.append("No se encontró ninguna ruta entre estos usuarios.");
+        } else {
+            sb.append("Se encontraron ").append(todosLosCaminos.size()).append(" rutas:\n");
+
+            // Opcional: Encontrar la ruta "más efectiva" (la más corta)
+            List<Usuario> rutaMasCorta = todosLosCaminos.stream()
+                    .min(Comparator.comparingInt(List::size))
+                    .orElse(null);
+
+            sb.append("\n--- RUTA MÁS CORTA ---\n");
+            if (rutaMasCorta != null) {
+                sb.append(caminoATexto(rutaMasCorta));
+                sb.append(" (").append(rutaMasCorta.size() - 1).append(" saltos)\n");
+            }
+
+            sb.append("\n--- TODAS LAS RUTAS ---\n");
+            for (List<Usuario> camino : todosLosCaminos) {
+                sb.append(caminoATexto(camino)).append("\n");
+            }
+        }
+        areaResultadosTexto.setText(sb.toString());
+    }
+
+    /**
+     * [NUEVO] Método auxiliar para convertir un camino (Lista de Usuarios) a un String.
+     */
+    private String caminoATexto(List<Usuario> camino) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < camino.size(); i++) {
+            sb.append(camino.get(i).getNombre());
+            if (i < camino.size() - 1) {
+                sb.append(" -> ");
+            }
+        }
+        return sb.toString();
     }
 }

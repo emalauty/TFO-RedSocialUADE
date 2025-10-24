@@ -1,5 +1,8 @@
 package modelo.grafo;
 
+import modelo.grafo.Conexion;
+import modelo.grafo.Usuario;
+
 import java.util.*;
 
 public class RedSocialGrafo {
@@ -7,7 +10,7 @@ public class RedSocialGrafo {
     private final List<Usuario> usuarios;
     private final List<Conexion> conexiones;
 
-    // --- Constructor y métodos que ya tenías ---
+    // --- Constructor y Métodos Base ---
     public RedSocialGrafo() {
         this.usuarios = new ArrayList<>();
         this.conexiones = new ArrayList<>();
@@ -29,19 +32,23 @@ public class RedSocialGrafo {
         return conexiones;
     }
 
-    // --- Método de Kruskal que ya tenías ---
+    // --- Algoritmo de Kruskal (Problema 3) ---
+
     public List<Conexion> calcularRedMinima() {
-        // ... (tu código de Kruskal va aquí)
         List<Conexion> conexionesOrdenadas = new ArrayList<>(this.conexiones);
         conexionesOrdenadas.sort(Comparator.comparingInt(Conexion::getCosto));
+
         List<Conexion> redMinima = new ArrayList<>();
         Map<Usuario, Usuario> parent = new HashMap<>();
+
         for (Usuario u : usuarios) {
             parent.put(u, u);
         }
+
         for (Conexion conexion : conexionesOrdenadas) {
             Usuario rootA = find(conexion.getUsuarioA(), parent);
             Usuario rootB = find(conexion.getUsuarioB(), parent);
+
             if (!rootA.equals(rootB)) {
                 redMinima.add(conexion);
                 union(rootA, rootB, parent);
@@ -49,6 +56,8 @@ public class RedSocialGrafo {
         }
         return redMinima;
     }
+
+    // --- Métodos Auxiliares DSU (Usados por Kruskal y Simulación) ---
 
     private Usuario find(Usuario usuario, Map<Usuario, Usuario> parent) {
         if (parent.get(usuario).equals(usuario)) {
@@ -63,87 +72,140 @@ public class RedSocialGrafo {
     }
 
 
-    // --- CÓDIGO PARA ALGORITMO DE DIJKSTRA ---
-
+    // --- Algoritmo de Dijkstra (Problema 4) ---
 
     private static class NodoDistancia implements Comparable<NodoDistancia> {
         Usuario usuario;
         int distancia;
-
-        NodoDistancia(Usuario usuario, int distancia) {
-            this.usuario = usuario;
-            this.distancia = distancia;
-        }
-
+        NodoDistancia(Usuario usuario, int distancia) { this.usuario = usuario; this.distancia = distancia; }
         @Override
-        public int compareTo(NodoDistancia other) {
-            // Compara por distancia (de menor a mayor)
-            return Integer.compare(this.distancia, other.distancia);
-        }
+        public int compareTo(NodoDistancia other) { return Integer.compare(this.distancia, other.distancia); }
     }
 
-    /**
-     * Implementa el algoritmo de Dijkstra para encontrar los caminos más cortos
-     * desde un usuario de inicio a todos los demás en el grafo.
-     *
-     * @param inicio El Usuario desde el cual se calculan las distancias.
-     * @return Un Map donde la clave es cada Usuario y el valor es la distancia más corta
-     * (costo total) desde el usuario de inicio.
-     */
     public Map<Usuario, Integer> encontrarCaminosMasCortos(Usuario inicio) {
-        // 1. Inicialización
         Map<Usuario, Integer> distancias = new HashMap<>();
         PriorityQueue<NodoDistancia> pq = new PriorityQueue<>();
         Set<Usuario> visitados = new HashSet<>();
 
-        // Inicializar todas las distancias como "infinito"
         for (Usuario u : this.usuarios) {
             distancias.put(u, Integer.MAX_VALUE);
         }
 
-        // La distancia al nodo de inicio es 0
-        distancias.put(inicio, 0);
+        // Manejo de error si el usuario de inicio no está en el mapa
+        if(distancias.containsKey(inicio)) {
+            distancias.put(inicio, 0);
+        } else {
+            return distancias; // Devuelve distancias infinitas si el inicio no existe
+        }
+
         pq.add(new NodoDistancia(inicio, 0));
 
-        // 2. Bucle principal del algoritmo
         while (!pq.isEmpty()) {
-            // Sacamos el nodo con la menor distancia de la cola de prioridad
             NodoDistancia nodoActual = pq.poll();
             Usuario usuarioActual = nodoActual.usuario;
 
-            // Si ya lo visitamos, lo ignoramos (esto evita procesar rutas más largas)
-            if (visitados.contains(usuarioActual)) {
-                continue;
-            }
+            if (visitados.contains(usuarioActual)) continue;
             visitados.add(usuarioActual);
 
-            // 3. Revisar todos los vecinos del nodo actual
-            // (Esta parte itera sobre todas las conexiones para encontrar vecinos)
             for (Conexion c : this.conexiones) {
                 Usuario vecino = null;
-                // Verificamos si la conexión 'c' involucra a nuestro 'usuarioActual'
                 if (c.getUsuarioA().equals(usuarioActual) && !visitados.contains(c.getUsuarioB())) {
                     vecino = c.getUsuarioB();
                 } else if (c.getUsuarioB().equals(usuarioActual) && !visitados.contains(c.getUsuarioA())) {
                     vecino = c.getUsuarioA();
                 }
 
-                // Si encontramos un vecino válido que no hemos visitado
                 if (vecino != null) {
-                    // 4. "Relajación": Calculamos la nueva distancia a este vecino
                     int nuevaDistancia = distancias.get(usuarioActual) + c.getCosto();
-
-                    // Si este nuevo camino es más corto que el que ya teníamos...
                     if (nuevaDistancia < distancias.get(vecino)) {
-                        // ...actualizamos la distancia más corta
                         distancias.put(vecino, nuevaDistancia);
-                        // y añadimos al vecino a la cola de prioridad para explorarlo
                         pq.add(new NodoDistancia(vecino, nuevaDistancia));
                     }
                 }
             }
         }
-
         return distancias;
+    }
+
+
+    // --- Algoritmo de Componentes Conexos (Opcional 1) ---
+
+    public int contarComponentesConexos(Conexion conexionABloquear) {
+        List<Conexion> conexionesActivas = new ArrayList<>();
+        if (conexionABloquear != null) {
+            for (Conexion c : this.conexiones) {
+                if (!c.equals(conexionABloquear)) {
+                    conexionesActivas.add(c);
+                }
+            }
+        } else {
+            conexionesActivas.addAll(this.conexiones);
+        }
+
+        if (this.usuarios.isEmpty()) {
+            return 0;
+        }
+
+        Map<Usuario, Usuario> parent = new HashMap<>();
+        for (Usuario u : usuarios) {
+            parent.put(u, u);
+        }
+
+        for (Conexion c : conexionesActivas) {
+            Usuario rootA = find(c.getUsuarioA(), parent);
+            Usuario rootB = find(c.getUsuarioB(), parent);
+            if (!rootA.equals(rootB)) {
+                union(rootA, rootB, parent);
+            }
+        }
+
+        Set<Usuario> raicesUnicas = new HashSet<>();
+        for (Usuario u : this.usuarios) {
+            raicesUnicas.add(find(u, parent));
+        }
+
+        return raicesUnicas.size();
+    }
+
+
+    // --- Algoritmo de Exploración de Rutas (Opcional 4 - Backtracking) ---
+
+    public List<List<Usuario>> explorarRutasDeInfluencia(Usuario inicio, Usuario fin) {
+        List<List<Usuario>> todosLosCaminos = new ArrayList<>();
+        List<Usuario> caminoActual = new ArrayList<>();
+        Set<Usuario> visitadosEnCamino = new HashSet<>();
+
+        backtrack(inicio, fin, caminoActual, visitadosEnCamino, todosLosCaminos);
+
+        return todosLosCaminos;
+    }
+
+    private void backtrack(Usuario actual, Usuario fin,
+                           List<Usuario> caminoActual,
+                           Set<Usuario> visitadosEnCamino,
+                           List<List<Usuario>> todosLosCaminos) {
+
+        caminoActual.add(actual);
+        visitadosEnCamino.add(actual);
+
+        if (actual.equals(fin)) {
+            todosLosCaminos.add(new ArrayList<>(caminoActual));
+        } else {
+            for (Conexion c : this.conexiones) {
+                Usuario vecino = null;
+                if (c.getUsuarioA().equals(actual) && !visitadosEnCamino.contains(c.getUsuarioB())) {
+                    vecino = c.getUsuarioB();
+                } else if (c.getUsuarioB().equals(actual) && !visitadosEnCamino.contains(c.getUsuarioA())) {
+                    vecino = c.getUsuarioA();
+                }
+
+                if (vecino != null) {
+                    backtrack(vecino, fin, caminoActual, visitadosEnCamino, todosLosCaminos);
+                }
+            }
+        }
+
+        caminoActual.remove(caminoActual.size() - 1);
+        visitadosEnCamino.remove(actual);
     }
 }
